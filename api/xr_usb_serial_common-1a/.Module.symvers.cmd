@@ -1,0 +1,1 @@
+cmd_/home/eit5/solar/SolarRaspberryPI/api/xr_usb_serial_common-1a/Module.symvers :=  sed 's/ko$$/o/'  /home/eit5/solar/SolarRaspberryPI/api/xr_usb_serial_common-1a/modules.order | scripts/mod/modpost -m -a    -o /home/eit5/solar/SolarRaspberryPI/api/xr_usb_serial_common-1a/Module.symvers -e -i Module.symvers -T - 

@@ -1,0 +1,1 @@
+cmd_/home/eit5/solar/SolarRaspberryPI/api/xr_usb_serial_common-1a/xr_usb_serial_common.mod := printf '%s\n'   xr_usb_serial_common.o | awk '!x[$$0]++ { print("/home/eit5/solar/SolarRaspberryPI/api/xr_usb_serial_common-1a/"$$0) }' > /home/eit5/solar/SolarRaspberryPI/api/xr_usb_serial_common-1a/xr_usb_serial_common.mod

@@ -1,0 +1,1 @@
+cmd_/home/eit5/solar/SolarRaspberryPI/api/xr_usb_serial_common-1a/modules.order := {   echo /home/eit5/solar/SolarRaspberryPI/api/xr_usb_serial_common-1a/xr_usb_serial_common.ko; :; } > /home/eit5/solar/SolarRaspberryPI/api/xr_usb_serial_common-1a/modules.order

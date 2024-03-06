@@ -52,7 +52,7 @@ Discharging equipment output power
 """
 
 registers = [
-    "Charging equipment input voltage   sssss",
+    "Charging equipment input voltage",
     "Charging equipment input current",
     "Charging equipment input power",
     "Battery Temperature",
@@ -80,9 +80,10 @@ while True:
         except Exception as e:
             print(e)
             if attempt < retry_attempts - 1:
+                time.sleep(5)
                 print("Attempting to retry...")
                 continue  # Try again
             else:
                 print("Max retries reached. Waiting for the next cycle.")
                 break  # Exit the retry loop after the last attempt
-    time.sleep(5)  # Wait for 15 minutes before the next cycle
+    time.sleep(900)  # Wait for 15 minutes before the next cycle
