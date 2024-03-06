@@ -13,6 +13,9 @@ from pyepsolartracer.client import EPsolarTracerClient
 from pymodbus.mei_message import *
 import serial.rs485
 
+from flask import jsonify
+import sqlite3
+
 # configure the client logging
 import logging
 
@@ -52,30 +55,61 @@ Discharging equipment output power
 """
 
 registers = [
-    "Charging equipment input voltage",
-    "Charging equipment input current",
-    "Charging equipment input power",
-    "Battery Temperature",
-    "Charging equipment output voltage",
-    "Charging equipment output current",
-    "Charging equipment output power",
-    "Discharging equipment output voltage",
-    "Discharging equipment output current",
-    "Discharging equipment output power",
+    "solar_voltage",
+    "solar_current",
+    "solar_power",
+    "battery_temp",
+    "battery_voltage",
+    "battery_current",
+    "load_voltage",
+    "load_current",
 ]
 
 
+def get_db_connection():
+    try:
+        conn = sqlite3.connect("solar.sqlite")
+        conn.row_factory = sqlite3.Row
+        return conn
+    except sqlite3.Error as e:
+        print(e)
+        return None
+
+
+def insert_data(data):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        print(data)
+        cursor.execute(
+            """
+                INSERT INTO solar (solar_power, solar_voltage, solar_current, battery_voltage, battery_current, battery_temp, load_current, load_voltage)
+                VALUES (:solar_power, :solar_voltage, :solar_current, :battery_voltage, :battery_current, :battery_temp, :load_current, :load_voltage)
+                """,
+            data,
+        )
+        conn.commit()
+        conn.close()
+        return {"message": "Data inserted"}, 201
+    except Exception as e:
+        return {"message": str(e)}, 500
+
+
 def fetch_registers():
+    data = {}
     for register in registers:
         response = client.read_input(register)
-        print(register + ": " + str(response))
+        data[register] = int(response)
+        print(f"{register}: {int(response)}")
+    return data
 
 
 while True:
     retry_attempts = 3  # Number of total attempts including the first one
     for attempt in range(retry_attempts):
         try:
-            fetch_registers()
+            data = fetch_registers()
+            insert_data(data)
             break  # If fetch_registers succeeds, break out of the retry loop
         except Exception as e:
             print(e)
