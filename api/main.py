@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-import json
+from functions import fetch_position, move_model
 import sqlite3
 
 app = Flask(__name__)
@@ -49,6 +49,12 @@ def get_all_solar_data():
     return jsonify(solar_data)
 
 
+@app.route("/solar/position", methods=["GET"])
+def get_solar_position():
+    response = fetch_position()
+    return jsonify(response)
+
+
 @app.route("/solar", methods=["POST"])
 def post_solar_data():
     try:
@@ -88,6 +94,36 @@ def delete_solar_data(id):
     conn.close()
 
     return jsonify({"message": "Data deleted successfully"}), 200
+
+
+# New function to control with physical model
+# vinkel jeg skal til
+@app.route("/solar/move", methods=["PUT"])
+def control_solar_panel():
+
+    data = None
+
+    try:
+        data = request.json
+    except Exception as e:
+        return jsonify({"error": f"Request must be JSON. {str(e)}"}), 400
+
+    if not data:
+        return jsonify({"error": "Request must be JSON"}), 400
+
+    if "angle" not in data or not isinstance(data["angle"], int):
+        return (
+            jsonify(
+                {"error": f"Missing angle key or value in request. Received {data}"}
+            ),
+            400,
+        )
+
+    # Update the angle setting
+    response = move_model(data["angle"])
+
+    # Return the updated setting
+    return jsonify(response), 200
 
 
 # @app.route("/solar", methods=["GET", "POST"])
