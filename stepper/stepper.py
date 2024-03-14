@@ -42,7 +42,7 @@ if __name__ == "__main__":
 Navigate to the stepper folder and try the script with the following command:
 python .\stepper.py 360, -180
 
-Remember to activate the venv before:
-windows:    venv\Scripts\activate
-Unix/MacOS: source venv/bin/activate
+The required packages are found in requirements.txt and can be installed into
+any create virtual environment by the command:
+pip install -r requirements.txt
 """
