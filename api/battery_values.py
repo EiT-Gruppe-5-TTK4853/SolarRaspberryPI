@@ -19,9 +19,13 @@ import sqlite3
 # configure the client logging
 import logging
 
-logging.basicConfig()
-log = logging.getLogger()
-log.setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
+
+logging.basicConfig(
+    filename="main.log",
+    level=logging.INFO,
+    format="%(asctime)s:%(levelname)s:%(message)s",
+)
 
 # choose the serial client
 client = ModbusClient(
@@ -72,7 +76,7 @@ def get_db_connection():
         conn.row_factory = sqlite3.Row
         return conn
     except sqlite3.Error as e:
-        print(e)
+        logger.error(f"Error connecting to database: {e}")
         return None
 
 
@@ -80,7 +84,6 @@ def insert_data(data):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        print(data)
         cursor.execute(
             """
                 INSERT INTO solar (solar_power, solar_voltage, solar_current, battery_voltage, battery_current, battery_temp, load_current, load_voltage)
@@ -92,6 +95,7 @@ def insert_data(data):
         conn.close()
         return {"message": "Data inserted"}, 201
     except Exception as e:
+        logger.error(f"Error inserting data: {e}")
         return {"message": str(e)}, 500
 
 
@@ -100,7 +104,7 @@ def fetch_registers():
     for register in registers:
         response = client.read_input(register)
         data[register] = float(response.value)
-        print(f"{register}: {float(response.value)}")
+        logger.info(f"{register}: {float(response.value)}")
     return data
 
 
@@ -110,6 +114,7 @@ def run():
         interval = 900  # 15 minutes
         for attempt in range(retry_attempts):
             try:
+                logger.info("Insterting data from solar panel...")
                 data = fetch_registers()
                 insert_data(data)
                 break  # If fetch_registers succeeds, break out of the retry loop
@@ -117,10 +122,10 @@ def run():
                 print(e)
                 if attempt < retry_attempts - 1:
                     time.sleep(5)
-                    print("Attempting to retry...")
+                    logger.info("Attempting to retry...")
                     continue  # Try again
                 else:
-                    print("Max retries reached. Waiting for the next cycle.")
+                    logger.info("Max retries reached. Waiting for the next cycle.")
                     break  # Exit the retry loop after the last attempt
         time.sleep(interval)  # Wait for {interval} minutes before the next cycle
 
