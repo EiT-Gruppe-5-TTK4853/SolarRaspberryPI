@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from functions import fetch_position, move_model
 import sqlite3
+import logging
 
 app = Flask(__name__)
 
@@ -8,6 +9,8 @@ app = Flask(__name__)
 """
 Run with python main.py
 """
+
+logger = logging.getLogger(__name__)
 
 
 # Function to get a database connection.
@@ -17,6 +20,7 @@ def get_db_connection():
         conn.row_factory = sqlite3.Row
         return conn
     except sqlite3.Error as e:
+        logger.error(f"Error connecting to database: {e}")
         print(e)
         return None
 
@@ -52,6 +56,7 @@ def get_all_solar_data():
 @app.route("/solar/position", methods=["GET"])
 def get_solar_position():
     response = fetch_position()
+    print(jsonify(response))
     return jsonify(response)
 
 
@@ -96,8 +101,6 @@ def delete_solar_data(id):
     return jsonify({"message": "Data deleted successfully"}), 200
 
 
-# New function to control with physical model
-# vinkel jeg skal til
 @app.route("/solar/move", methods=["PUT"])
 def control_solar_panel():
 
@@ -106,73 +109,87 @@ def control_solar_panel():
     try:
         data = request.json
     except Exception as e:
+        logger.info("Parse to JSON failed")
         return jsonify({"error": f"Request must be JSON. {str(e)}"}), 400
 
     if not data:
+        logger.info(f"No data. Received {data}")
         return jsonify({"error": "Request must be JSON"}), 400
 
-    if "angle" not in data or not isinstance(data["angle"], int):
+    if "pitch" not in data or not isinstance(data["pitch"], float):
+        logger.info(f"No pitch or not wrong type. Received: {data}")
         return (
             jsonify(
-                {"error": f"Missing angle key or value in request. Received {data}"}
+                {"error": f"Missing pitch key or value in request. Received {data}"}
             ),
             400,
         )
 
+    if "yaw" not in data or not isinstance(data["yaw"], float):
+        logger.info(f"No yaw or not wrong type. Received: {data}")
+        return (
+            jsonify({"error": f"Missing yaw key or value in request. Received {data}"}),
+            400,
+        )
+
     # Update the angle setting
-    response = move_model(data["angle"])
+    yaw, pitch = 0, 0
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Fetch latest position
+        cursor.execute(
+            "SELECT yaw, pitch FROM solar_position ORDER BY created_time DESC LIMIT 1"
+        )
+        position_raw = cursor.fetchall()
+        yaw, pitch = position_raw[0]
+
+        conn.close()
+        logger.info(f"Data yaw: {yaw}, pitch: {pitch} queried from db")
+    except Exception as e:
+        print("It dont work fetching")
+        return jsonify({"error": str(e)}), 500
+
+    # Move model
+    response = move_model(data["pitch"], data["yaw"], pitch, yaw)
+    z_steps = response["z_steps"]
+    y_steps = response["y_steps"]
+
+    print("z_steps", z_steps, "y_steps", y_steps)
+
+    if response["z_steps"] == 0 and response["y_steps"] == 0:
+        return (
+            jsonify("Model not moved, no steps required to reach target position"),
+            204,
+        )
+
+    data["pitch"] = pitch if y_steps == 0 else data["pitch"]
+    data["yaw"] = yaw if z_steps == 0 else data["yaw"]
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """INSERT INTO solar_position (yaw, pitch) VALUES (:yaw, :pitch)""",
+            data,
+        )
+        conn.commit()
+        conn.close()
+        logger.info(f"Data {data} inserted")
+    except Exception as e:
+        print("It dont work inserting")
+        return jsonify({"error": str(e)}), 500
 
     # Return the updated setting
-    return jsonify(response), 200
+    return jsonify(response["message"]), 200
 
 
-# @app.route("/solar", methods=["GET", "POST"])
-# def solars():
-#     conn = db_connection()
-#     cursor = conn.cursor()
-
-#     if request.method == "GET":
-#         cursor = conn.execute("SELECT * FROM solar")
-#         solars = [
-#             dict(id=row[0], solar_power=row[1], solar_voltage=row[2], solar_current=row[3], battery_voltage=row[4], battery_current=row[5],
-#             battery_temp=row[6], load_current=row[7], load_voltage=row[8] )
-#             for row in cursor.fetchall()
-#         ]
-#         if solars is not None:
-#             return jsonify(solars)
-
-#     if request.method == "POST":
-#         print(request.form)
-#         new_solar_power = request.form["solar_power"]
-#         new_solar_voltage = request.form["solar_voltage"]
-#         new_solar_current = request.form["solar_current"]
-#         new_battery_voltage = request.form["battery_voltage"]
-#         new_battery_current = request.form["battery_current"]
-#         new_battery_temp = request.form["battery_temp"]
-#         new_load_current = request.form["load_current"]
-#         new_load_voltage = request.form["load_voltage"]
-
-#         sql = """INSERT INTO solar (solar_power, solar_voltage, solar_current, battery_current, battery_temp, battery_voltage,
-#         load_current, load_voltage)
-#                     values (?, ?, ?, ?, ?, ?, ?, ?)"""
-#         cursor = conn.execute(sql, (new_solar_power, new_solar_voltage, new_solar_current, new_battery_voltage, new_battery_current,
-#         new_battery_temp, new_load_current, new_load_voltage ))
-#         conn.commit()
-#         return f"Book with the id: {cursor.lastrowid} created successfully", 201
-
-# @app.route("/")
-# def hello():
-#     return "Hejsann allihpppe"
-
-# @app.route("/test")
-# def test():
-#     return "This is a test!!"
-
-
-# @app.route("/<argument>")
-# def argument(argument):
-#     return f"The argument is {argument}, insane!"
-
-
+logging.basicConfig(
+    filename="main.log",
+    level=logging.INFO,
+    format="%(asctime)s:%(levelname)s:%(message)s",
+)
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0")
+    logging.info("The script is running.")
+    app.run(debug=True, host="0.0.0.0")  # Run api

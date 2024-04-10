@@ -99,25 +99,31 @@ def fetch_registers():
     data = {}
     for register in registers:
         response = client.read_input(register)
-        data[register] = int(response)
-        print(f"{register}: {int(response)}")
+        data[register] = float(response.value)
+        print(f"{register}: {float(response.value)}")
     return data
 
 
-while True:
-    retry_attempts = 3  # Number of total attempts including the first one
-    for attempt in range(retry_attempts):
-        try:
-            data = fetch_registers()
-            insert_data(data)
-            break  # If fetch_registers succeeds, break out of the retry loop
-        except Exception as e:
-            print(e)
-            if attempt < retry_attempts - 1:
-                time.sleep(5)
-                print("Attempting to retry...")
-                continue  # Try again
-            else:
-                print("Max retries reached. Waiting for the next cycle.")
-                break  # Exit the retry loop after the last attempt
-    time.sleep(900)  # Wait for 15 minutes before the next cycle
+def run():
+    while True:
+        retry_attempts = 3  # Number of total attempts including the first one
+        interval = 900  # 15 minutes
+        for attempt in range(retry_attempts):
+            try:
+                data = fetch_registers()
+                insert_data(data)
+                break  # If fetch_registers succeeds, break out of the retry loop
+            except Exception as e:
+                print(e)
+                if attempt < retry_attempts - 1:
+                    time.sleep(5)
+                    print("Attempting to retry...")
+                    continue  # Try again
+                else:
+                    print("Max retries reached. Waiting for the next cycle.")
+                    break  # Exit the retry loop after the last attempt
+        time.sleep(interval)  # Wait for {interval} minutes before the next cycle
+
+
+if __name__ == "__main__":
+    run()  # Run script for fetching values from solar panel
